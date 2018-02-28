@@ -1,6 +1,6 @@
 FROM resin/raspberrypi3-node:slim
 
-WORKDIR /opt/raspi-sonar
+WORKDIR /opt/node-nest
 
 COPY package.json .
 

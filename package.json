@@ -1,0 +1,26 @@
+{
+  "name": "node-nest",
+  "version": "1.0.0",
+  "description": "Simple NodeJS service that tracks nest thermostat statistics",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TNowalk/node-nest.git"
+  },
+  "author": "Trevor Nowalk",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/TNowalk/node-nest/issues"
+  },
+  "homepage": "https://github.com/TNowalk/node-nest#readme",
+  "dependencies": {
+    "dotenv": "^5.0.0",
+    "influx": "^5.0.7",
+    "mongodb": "^2.2.33",
+    "winston": "^2.4.0"
+  }
+}

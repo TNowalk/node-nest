@@ -4,6 +4,7 @@ require('dotenv').config();
 const https = require('https');
 const Influx = require('influx');
 const winston = require('winston');
+// TODO: Add raspi-sonar
 
 const ENVIRONMENT = process.env.ENVIRONMENT || 'production';
 const DEFAULT_NEST_URL = 'developer-api.nest.com';
@@ -41,6 +42,15 @@ const influxdb = new Influx.InfluxDB({
         'device_id',
         'room'
       ]
+    },{
+      measurement: 'sensor.humidity.reading',
+      fields: {
+        humidity: Influx.FieldType.INTEGER
+      },
+      tags: [
+        'device_id',
+        'room'
+      ]
     }
   ]
 });
@@ -61,17 +71,9 @@ influxdb.getDatabaseNames()
     process.exit(1);
   });
 
-// TODO: Update the interval to better timing
-// TODO: Extract temperature and store in influx `ambient_temperature_f`
-// TODO: Extract humidity and store in influx `humidity`
-// TODO: Extract target temperature (high|low) `target_temperature_high_f` & `target_temperature_low_f`
 // TODO: Extract hvac mode `hvac_mode`
 // TODO: Extract is online `is_online`
 // TODO: Extract has leaf `has_fan`
-// TODO: Extract device ID `device_id`
-// nest().then((data) => {
-//   console.log(data);
-// })
 
 winston.info(`Begin Polling in ${POLLING_FREQUENCY / 1000}s`);
 let interval = setInterval(() => {
@@ -96,7 +98,8 @@ let interval = setInterval(() => {
         // console.log('structure', structure);
         // console.log('where', where);
 
-        winston.info(`[InfluxDB] Writing temperature data for ${device.name}`);
+        // TODO: Batch into a single write
+        winston.info(`[InfluxDB] Writing data for ${device.name}`);
         influxdb.writePoints([
           {
             measurement: 'sensor.temperature.reading',
@@ -109,9 +112,18 @@ let interval = setInterval(() => {
               target_high: device.target_temperature_high_f,
               target_low: device.target_temperature_low_f
             },
+          },{
+            measurement: 'sensor.humidity.reading',
+            tags: {
+              device_id: device.device_id,
+              room: where.name
+            },
+            fields: {
+              humidity: device.humidity
+            },
           }
         ]).catch(err => {
-          winston.error(`[InfluxDB] Error saving data to \`sensor.temperature.reading\`! ${err.stack}`)
+          winston.error(`[InfluxDB] Error saving data: ${err.stack}`)
         })
       }
     } else {

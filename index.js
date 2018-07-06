@@ -4,10 +4,10 @@ require('dotenv').config();
 const https = require('https');
 const Influx = require('influx');
 const winston = require('winston');
-// TODO: Add raspi-sonar
 
 const ENVIRONMENT = process.env.ENVIRONMENT || 'production';
 const DEFAULT_NEST_URL = 'developer-api.nest.com';
+const DEFAULT_NEST_PORT = 443;
 const POLLING_FREQUENCY = process.env.POLLING_FREQUENCY || 60000;
 
 winston.level = process.env.LOG_LEVEL || 'error';
@@ -35,6 +35,7 @@ const influxdb = new Influx.InfluxDB({
       measurement: 'sensor.temperature.reading',
       fields: {
         ambient: Influx.FieldType.FLOAT,
+        target: Influx.FieldType.FLOAT,
         target_high: Influx.FieldType.FLOAT,
         target_low: Influx.FieldType.FLOAT
       },
@@ -49,6 +50,20 @@ const influxdb = new Influx.InfluxDB({
       },
       tags: [
         'device_id',
+        'room'
+      ]
+    },{
+      measurement: 'device.state.reading',
+      fields: {
+        fan: Influx.FieldType.BOOLEAN,
+        leaf: Influx.FieldType.BOOLEAN,
+        mode: Influx.FieldType.STRING,
+        state: Influx.FieldType.STRING,
+        online: Influx.FieldType.BOOLEAN
+      },
+      tags: [
+        'device_id',
+        'device_type',
         'room'
       ]
     }
@@ -71,10 +86,6 @@ influxdb.getDatabaseNames()
     process.exit(1);
   });
 
-// TODO: Extract hvac mode `hvac_mode`
-// TODO: Extract is online `is_online`
-// TODO: Extract has leaf `has_fan`
-
 winston.info(`Begin Polling in ${POLLING_FREQUENCY / 1000}s`);
 let interval = setInterval(() => {
   nest().then((data) => {
@@ -90,15 +101,10 @@ let interval = setInterval(() => {
 
       for (let i = 0; i < deviceIds.length; i++) {
         let device = data.devices.thermostats[deviceIds[i]];
-        // console.log('device', device);
 
         let structure = data.structures[device.structure_id];
         let where = structure.wheres[device.where_id];
 
-        // console.log('structure', structure);
-        // console.log('where', where);
-
-        // TODO: Batch into a single write
         winston.info(`[InfluxDB] Writing data for ${device.name}`);
         influxdb.writePoints([
           {
@@ -110,7 +116,8 @@ let interval = setInterval(() => {
             fields: {
               ambient: device.ambient_temperature_f,
               target_high: device.target_temperature_high_f,
-              target_low: device.target_temperature_low_f
+              target_low: device.target_temperature_low_f,
+              target: device.target_temperature_f
             },
           },{
             measurement: 'sensor.humidity.reading',
@@ -121,6 +128,20 @@ let interval = setInterval(() => {
             fields: {
               humidity: device.humidity
             },
+          },{
+            measurement: 'device.state.reading',
+            tags: {
+              device_id: device.device_id,
+              room: where.name,
+              device_type: 'nest'
+            },
+            fields: {
+              fan: device.has_fan,
+              leaf: device.has_leaf,
+              mode: device.hvac_mode,
+              state: device.hvac_state,
+              online: device.is_online
+            }
           }
         ]).catch(err => {
           winston.error(`[InfluxDB] Error saving data: ${err.stack}`)
@@ -148,7 +169,7 @@ function nest(url, port, redirectCount) {
     }
 
     if (!port) {
-      port = dynamicNestConfig.port || 443;
+      port = dynamicNestConfig.port || DEFAULT_NEST_PORT;
     }
 
     let opts = {
@@ -174,6 +195,20 @@ function nest(url, port, redirectCount) {
 
           winston.info(`[NestAPI] Redirect detected, using https://${dynamicNestConfig.host}:${dynamicNestConfig.port}`)
 
+          resolve(null);
+        }
+
+        if (res.statusCode === 404) {
+          dynamicNestConfig.host = null;
+          dynamicNestConfig.port = null;
+
+          winston.info(`[NestAPI] URL Not Found (404) detected, reverting to default https://${DEFAULT_NEST_URL}:${DEFAULT_NEST_PORT}`)
+
+          resolve(null);
+        }
+
+        if (res.statusCode === 429) {
+          winston.info('[NestAPI] Too Many Requests (429) detected, unhandled status code')
           resolve(null);
         }
 

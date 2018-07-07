@@ -55,11 +55,19 @@ const influxdb = new Influx.InfluxDB({
     },{
       measurement: 'device.state.reading',
       fields: {
-        fan: Influx.FieldType.BOOLEAN,
-        leaf: Influx.FieldType.BOOLEAN,
+        fan: Influx.FieldType.INTEGER,
+        leaf: Influx.FieldType.INTEGER,
         mode: Influx.FieldType.STRING,
         state: Influx.FieldType.STRING,
-        online: Influx.FieldType.BOOLEAN
+        online: Influx.FieldType.INTEGER,
+        mode_off: Influx.FieldType.INTEGER,
+        mode_heat: Influx.FieldType.INTEGER,
+        mode_cool: Influx.FieldType.INTEGER,
+        mode_heat_cool: Influx.FieldType.INTEGER,
+        mode_eco: Influx.FieldType.INTEGER,
+        state_off: Influx.FieldType.INTEGER,
+        state_cooling: Influx.FieldType.INTEGER,
+        state_heating: Influx.FieldType.INTEGER
       },
       tags: [
         'device_id',
@@ -136,11 +144,19 @@ let interval = setInterval(() => {
               device_type: 'nest'
             },
             fields: {
-              fan: device.has_fan,
-              leaf: device.has_leaf,
+              fan: device.has_fan ? 1 : 0,
+              leaf: device.has_leaf ? 1 : 0,
               mode: device.hvac_mode,
               state: device.hvac_state,
-              online: device.is_online
+              online: device.is_online ? 1 : 0,
+              mode_off: device.hvac_mode == 'off' ? 1 : 0,
+              mode_heat: device.hvac_mode == 'heat' ? 1 : 0,
+              mode_cool: device.hvac_mode == 'cool' ? 1 : 0,
+              mode_heat_cool: device.hvac_mode == 'heat-cool' ? 1 : 0,
+              mode_eco: device.hvac_mode == 'eco' ? 1 : 0,
+              state_off: device.hvac_state == 'off' ? 1 : 0,
+              state_cooling: device.hvac_state == 'cooling' ? 1 : 0,
+              state_heating: device.hvac_state == 'heating' ? 1 : 0
             }
           }
         ]).catch(err => {
